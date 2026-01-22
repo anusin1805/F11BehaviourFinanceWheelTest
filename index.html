@@ -9,11 +9,13 @@
             --primary: #764ba2;
             --secondary: #667eea;
             --accent: #ff6b6b;
+            --text-dark: #2d3748;
         }
         body {
             font-family: 'Segoe UI', sans-serif;
             background: #f0f2f5;
             display: flex; flex-direction: column; align-items: center; padding: 40px;
+            color: var(--text-dark);
         }
         .header { text-align: center; margin-bottom: 30px; }
         
@@ -37,123 +39,186 @@
 
         /* RESULTS CARD */
         #resultCard {
-            max-width: 600px; background: white; padding: 25px;
+            max-width: 800px; width: 90%; background: white; padding: 25px;
             border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             display: none; animation: slideUp 0.5s ease;
+            text-align: center;
         }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } }
         
         .pillar-badge { 
             display: inline-block; padding: 5px 15px; border-radius: 20px; 
-            background: var(--secondary); color: white; font-size: 12px; margin-bottom: 10px;
+            background: var(--secondary); color: white; font-size: 14px; margin-bottom: 10px; font-weight: bold;
         }
         button {
             padding: 15px 40px; font-size: 18px; border: none;
             background: linear-gradient(135deg, var(--secondary), var(--primary));
             color: white; border-radius: 30px; cursor: pointer; font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom: 30px;
         }
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
+
+        /* DATA TABLE STYLING */
+        .stock-table {
+            width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;
+        }
+        .stock-table th {
+            background: #f7fafc; padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #4a5568;
+        }
+        .stock-table td {
+            padding: 12px; border-bottom: 1px solid #e2e8f0;
+        }
+        .stock-table tr:hover { background-color: #f8f9fa; }
+        .trend-up { color: #2ecc71; font-weight: bold; }
+        .trend-down { color: #e53e3e; font-weight: bold; }
     </style>
- <script type="module">
-     
-     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-// 1. FIREBASE CONFIG
-const firebaseConfig = {
-    apiKey: "AIzaSyC1hVvK7Yd3qB1Ud3mbIKd_edq4XmH-PVI",
-    authDomain: "brave-calling-398109.firebaseapp.com",
-    projectId: "brave-calling-398109",
-    storageBucket: "brave-calling-398109.firebasestorage.app",
-    messagingSenderId: "118774845365",
-    appId: "1:118774845365:web:99841a1b01f387a48ed3fc"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// 2. WHEEL DATA
-const segments = [
-    { name: 'Mental Accounting', profile: 'Passive', pillar: 'MANAGE' },
-    { name: 'Herd Behavior', profile: 'Moderate', pillar: 'EARN' },
-    { name: 'Emotional Gap', profile: 'Passive', pillar: 'MANAGE' },
-    { name: 'Anchoring', profile: 'Moderate', pillar: 'GROW' },
-    { name: 'Self-Attribution', profile: 'Aggressive', pillar: 'EARN' },
-    { name: 'Confirmation Bias', profile: 'Aggressive', pillar: 'GROW' },
-    { name: 'Experiential Bias', profile: 'Moderate', pillar: 'GROW' },
-    { name: 'Loss Aversion', profile: 'Passive', pillar: 'MANAGE' },
-    { name: 'Familiarity Bias', profile: 'Passive', pillar: 'MANAGE' }
-];
-
-let currentRotation = 0;
-
-// 3. SPIN FUNCTION
-window.spin = function() {
-    const wheel = document.getElementById('wheel');
-    const randomExtra = Math.floor(Math.random() * 360) + 1800; 
-    currentRotation += randomExtra;
     
-    wheel.style.transform = `rotate(${currentRotation}deg)`;
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    setTimeout(() => {
-        const actualDegree = currentRotation % 360;
-        // Each segment is 40 degrees (360/9)
-        const segmentIndex = Math.floor(((360 - actualDegree) % 360) / 40);
-        const result = segments[segmentIndex];
-        
-        displayResult(result);
-        saveBiasToFirebase(result.name);
-    }, 4000);
-};
+        // 1. FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "AIzaSyC1hVvK7Yd3qB1Ud3mbIKd_edq4XmH-PVI",
+            authDomain: "brave-calling-398109.firebaseapp.com",
+            projectId: "brave-calling-398109",
+            storageBucket: "brave-calling-398109.firebasestorage.app",
+            messagingSenderId: "118774845365",
+            appId: "1:118774845365:web:99841a1b01f387a48ed3fc"
+        };
 
-// 4. UI & FIREBASE LOGIC
-function displayResult(result) {
-    const card = document.getElementById('resultCard');
-    card.style.display = 'block';
-    document.getElementById('pillar').innerText = result.pillar;
-    document.getElementById('biasTitle').innerText = result.name;
-    document.getElementById('biasDesc').innerText = `Your profile is ${result.profile}. This influences how you ${result.pillar} wealth.`;
-    document.getElementById('portfolioRec').innerText = `Applying ${result.name} Strategy to your dashboard...`;
-}
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-async function saveBiasToFirebase(biasName) {
-    const user = auth.currentUser;
-    if (user) {
-        try {
-            await setDoc(doc(db, "users", user.uid), { bias: biasName }, { merge: true });
-            console.log("Bias saved to Firebase:", biasName);
-        } catch (e) { console.error("Firebase Save Error:", e); }
-    }
-}
+        // 2. DATA SOURCE (The specific sheet tab you provided)
+        const SHEET_ID = "1W4G9JNnxBMCBOg5c42j1_8AthrTT9wfLIHGkYP5uqxs";
+        const GID = "1238012045"; // The specific tab for Biases/Market Cap
+        const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
-// 5. APP ROUTING (Fixed Syntax with commas)
-window.loadApp = (page) => {
-    const view = document.getElementById('view');
-    const apps = {
-        'profile': 'behavior-wheel.html',
-        'market': 'https://reinvestmentpoint-ms7xuznw25ojwy4zgw2sxk.streamlit.app/',
-        'subs': 'subscription.html',
-        'India Bot': 'https://anusin1805.github.io/FinanceF11IndiaBot/',
-        'US Bot': 'https://anusin1805.github.io/financeF11bot/',
-        'SignIn': 'https://anusin1805.github.io/F11DashboardLogin/login.html'
-    };
-    if (view && apps[page]) {
-        view.src = apps[page];
-    }
-};
+        // 3. WHEEL SEGMENTS (Must match Column W values roughly)
+        const segments = [
+            { name: 'Mental Accounting', profile: 'Passive', pillar: 'MANAGE' },
+            { name: 'Herd Behavior', profile: 'Moderate', pillar: 'EARN' },
+            { name: 'Emotional Gap', profile: 'Passive', pillar: 'MANAGE' },
+            { name: 'Anchoring', profile: 'Moderate', pillar: 'GROW' },
+            { name: 'Self-Attribution', profile: 'Aggressive', pillar: 'EARN' },
+            { name: 'Confirmation Bias', profile: 'Aggressive', pillar: 'GROW' },
+            { name: 'Experiential Bias', profile: 'Moderate', pillar: 'GROW' },
+            { name: 'Loss Aversion', profile: 'Passive', pillar: 'MANAGE' },
+            { name: 'Familiarity Bias', profile: 'Passive', pillar: 'MANAGE' }
+        ];
 
-// 6. INITIALIZATION
-document.getElementById('spinBtn').addEventListener('click', window.spin);
+        let currentRotation = 0;
 
-onAuthStateChanged(auth, (user) => {
-    if (user) {
-        console.log("User Active:", user.email);
-    } else {
-        console.log("No user logged in.");
-    }
-});
-</script>
+        // 4. SPIN LOGIC
+        window.spin = function() {
+            const wheel = document.getElementById('wheel');
+            const randomExtra = Math.floor(Math.random() * 360) + 1800; 
+            currentRotation += randomExtra;
+            
+            wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+            // Reset UI while spinning
+            document.getElementById('resultCard').style.display = 'none';
+            document.getElementById('tableBody').innerHTML = '';
+
+            setTimeout(() => {
+                const actualDegree = currentRotation % 360;
+                const segmentIndex = Math.floor(((360 - actualDegree) % 360) / 40);
+                const result = segments[segmentIndex];
+                
+                displayResult(result);
+                saveBiasToFirebase(result.name);
+                fetchAndDisplayTable(result.name); // Fetch data for this bias
+            }, 4000);
+        };
+
+        // 5. DISPLAY RESULTS
+        function displayResult(result) {
+            const card = document.getElementById('resultCard');
+            card.style.display = 'block';
+            document.getElementById('pillar').innerText = result.pillar;
+            document.getElementById('biasTitle').innerText = result.name;
+            document.getElementById('biasDesc').innerText = `Your profile is ${result.profile}. This influences how you ${result.pillar} wealth.`;
+            document.getElementById('portfolioRec').innerText = `Displaying Top 10 High-Cap Stocks for ${result.name}:`;
+        }
+
+        // 6. FETCH & FILTER TABLE DATA
+        async function fetchAndDisplayTable(biasName) {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '<tr><td colspan="5">Loading Market Data...</td></tr>';
+
+            try {
+                const response = await fetch(CSV_URL);
+                const text = await response.text();
+                const rows = text.split(/\r?\n/).map(row => row.split(','));
+
+                // Column Mapping based on your request:
+                // D=3 (Symbol), I=8 (Price), N=13 (Market Cap), W=22 (Biases), X=23 (Category)
+                
+                const data = rows.slice(1).map(row => {
+                    const clean = (idx) => row[idx] ? row[idx].replace(/"/g, '').trim() : "";
+                    return {
+                        symbol: clean(3),
+                        price: clean(8),
+                        marketCap: clean(13),
+                        biases: clean(22),
+                        category: clean(23),
+                        pillar: "GROW" // Defaulting to GROW, or map from wheel if needed
+                    };
+                });
+
+                // Helper to parse Market Cap for sorting (e.g., "1.5T" -> 1500000)
+                const parseCap = (capStr) => {
+                    if(!capStr) return 0;
+                    let val = parseFloat(capStr.replace(/[^0-9.]/g, ''));
+                    if (capStr.includes('T')) val *= 1000;
+                    if (capStr.includes('B')) val *= 1;
+                    return val;
+                };
+
+                // Filter by Bias, Sort by Market Cap, Take Top 10
+                // Note: If exact Bias match isn't found, we show all "GROW" or similar as fallback
+                const filtered = data
+                    .filter(item => item.biases.includes(biasName) || item.biases.includes('All'))
+                    .sort((a, b) => parseCap(b.marketCap) - parseCap(a.marketCap))
+                    .slice(0, 10);
+
+                // Render Table
+                if (filtered.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="5">No specific stocks found for this bias. showing general top picks.</td></tr>';
+                    return;
+                }
+
+                tableBody.innerHTML = filtered.map(stock => `
+                    <tr>
+                        <td style="font-weight:bold;">${stock.symbol}</td>
+                        <td>${stock.category}</td>
+                        <td><span class="pillar-badge" style="font-size:10px;">${stock.pillar}</span></td>
+                        <td>$${stock.price}</td>
+                        <td>${stock.marketCap}</td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                console.error("Data Load Error:", error);
+                tableBody.innerHTML = '<tr><td colspan="5" style="color:red;">Error loading market data.</td></tr>';
+            }
+        }
+
+        async function saveBiasToFirebase(biasName) {
+            const user = auth.currentUser;
+            if (user) {
+                try {
+                    await setDoc(doc(db, "users", user.uid), { bias: biasName }, { merge: true });
+                } catch (e) { console.error("Firebase Save Error:", e); }
+            }
+        }
+
+        document.getElementById('spinBtn').addEventListener('click', window.spin);
+    </script>
 </head>
 <body>
 
@@ -173,10 +238,25 @@ onAuthStateChanged(auth, (user) => {
         <div id="pillar" class="pillar-badge"></div>
         <h2 id="biasTitle"></h2>
         <p id="biasDesc"></p>
-        <hr>
-        <h3>🎯 Recommended F11 Strategy</h3>
-        <p id="portfolioRec"></p>
-        <div id="stockSuggest" style="font-style: italic; color: #666; margin-top: 10px;"></div>
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+        
+        <h3 id="portfolioRec">Recommended Strategy</h3>
+        
+        <div style="overflow-x: auto;">
+            <table class="stock-table">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Inv. Category</th>
+                        <th>Pillar</th>
+                        <th>Price</th>
+                        <th>Market Cap</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    </tbody>
+            </table>
+        </div>
     </div>
 
 </body>
