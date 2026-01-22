@@ -19,7 +19,7 @@
         }
         .header { text-align: center; margin-bottom: 30px; }
         
-        /* THE WHEEL STYLING */
+        /* WHEEL STYLING */
         .wheel-container { position: relative; width: 400px; height: 400px; margin-bottom: 30px; }
         #wheel {
             width: 100%; height: 100%; border-radius: 50%;
@@ -37,12 +37,23 @@
             border-right: 20px solid transparent; border-top: 40px solid #333; z-index: 10;
         }
 
+        /* RIBBON STYLING (Restored) */
+        .stock-ribbon-container {
+            width: 100%; max-width: 800px; overflow: hidden; white-space: nowrap;
+            background: #2d3748; color: white; padding: 10px 0;
+            margin-bottom: 20px; border-radius: 8px;
+        }
+        .stock-ribbon {
+            display: inline-block; padding-left: 100%; animation: scroll 20s linear infinite;
+        }
+        .stock-item { margin-right: 30px; font-weight: bold; }
+        @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+
         /* RESULTS CARD */
         #resultCard {
             max-width: 800px; width: 90%; background: white; padding: 25px;
             border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            display: none; animation: slideUp 0.5s ease;
-            text-align: center;
+            display: none; animation: slideUp 0.5s ease; text-align: center;
         }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } }
         
@@ -56,21 +67,12 @@
             color: white; border-radius: 30px; cursor: pointer; font-weight: bold;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom: 30px;
         }
-        button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
 
-        /* DATA TABLE STYLING */
-        .stock-table {
-            width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;
-        }
-        .stock-table th {
-            background: #f7fafc; padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; color: #4a5568;
-        }
-        .stock-table td {
-            padding: 12px; border-bottom: 1px solid #e2e8f0;
-        }
+        /* TABLE STYLING */
+        .stock-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        .stock-table th { background: #f7fafc; padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+        .stock-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
         .stock-table tr:hover { background-color: #f8f9fa; }
-        .trend-up { color: #2ecc71; font-weight: bold; }
-        .trend-down { color: #e53e3e; font-weight: bold; }
     </style>
     
     <script type="module">
@@ -92,12 +94,11 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // 2. DATA SOURCE (The specific sheet tab you provided)
+        // 2. DATA SOURCE - Using GID 0 (Raw Data) to get Market Cap & Biases columns
         const SHEET_ID = "1W4G9JNnxBMCBOg5c42j1_8AthrTT9wfLIHGkYP5uqxs";
-        const GID = "1238012045"; // The specific tab for Biases/Market Cap
+        const GID = "0"; // Changed to RAW DATA sheet to enable correct filtering
         const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
 
-        // 3. WHEEL SEGMENTS (Must match Column W values roughly)
         const segments = [
             { name: 'Mental Accounting', profile: 'Passive', pillar: 'MANAGE' },
             { name: 'Herd Behavior', profile: 'Moderate', pillar: 'EARN' },
@@ -112,17 +113,14 @@
 
         let currentRotation = 0;
 
-        // 4. SPIN LOGIC
+        // 3. SPIN LOGIC
         window.spin = function() {
             const wheel = document.getElementById('wheel');
             const randomExtra = Math.floor(Math.random() * 360) + 1800; 
             currentRotation += randomExtra;
-            
             wheel.style.transform = `rotate(${currentRotation}deg)`;
 
-            // Reset UI while spinning
             document.getElementById('resultCard').style.display = 'none';
-            document.getElementById('tableBody').innerHTML = '';
 
             setTimeout(() => {
                 const actualDegree = currentRotation % 360;
@@ -131,80 +129,93 @@
                 
                 displayResult(result);
                 saveBiasToFirebase(result.name);
-                fetchAndDisplayTable(result.name); // Fetch data for this bias
+                fetchMarketData(result.name); // Updates Table AND Ribbon
             }, 4000);
         };
 
-        // 5. DISPLAY RESULTS
         function displayResult(result) {
             const card = document.getElementById('resultCard');
             card.style.display = 'block';
             document.getElementById('pillar').innerText = result.pillar;
             document.getElementById('biasTitle').innerText = result.name;
             document.getElementById('biasDesc').innerText = `Your profile is ${result.profile}. This influences how you ${result.pillar} wealth.`;
-            document.getElementById('portfolioRec').innerText = `Displaying Top 10 High-Cap Stocks for ${result.name}:`;
         }
 
-        // 6. FETCH & FILTER TABLE DATA
-        async function fetchAndDisplayTable(biasName) {
+        // 4. FETCH & RENDER (Combined Logic)
+        async function fetchMarketData(biasName) {
             const tableBody = document.getElementById('tableBody');
+            const ribbon = document.getElementById('stockRibbon');
+            
             tableBody.innerHTML = '<tr><td colspan="5">Loading Market Data...</td></tr>';
+            ribbon.innerHTML = "Fetching Market Data...";
 
             try {
                 const response = await fetch(CSV_URL);
                 const text = await response.text();
+                // Simple CSV split (handling standard csv export)
                 const rows = text.split(/\r?\n/).map(row => row.split(','));
 
-                // Column Mapping based on your request:
-                // D=3 (Symbol), I=8 (Price), N=13 (Market Cap), W=22 (Biases), X=23 (Category)
-                
+                // MAP COLUMNS based on RAW SHEET (GID 0)
+                // D=3(Symbol), I=8(Price), N=13(Market Cap), W=22(Biases), X=23(Category)
                 const data = rows.slice(1).map(row => {
                     const clean = (idx) => row[idx] ? row[idx].replace(/"/g, '').trim() : "";
                     return {
                         symbol: clean(3),
                         price: clean(8),
                         marketCap: clean(13),
-                        biases: clean(22),
-                        category: clean(23),
-                        pillar: "GROW" // Defaulting to GROW, or map from wheel if needed
+                        change: clean(12), // Column M is % Change
+                        biases: clean(22), // Column W
+                        category: clean(23), // Column X
+                        pillar: "GROW", 
+                        currency: "₹" 
                     };
-                });
+                }).filter(item => item.symbol && item.symbol !== "Symbol");
 
-                // Helper to parse Market Cap for sorting (e.g., "1.5T" -> 1500000)
+                // --- LOGIC 1: FILTER TOP 10 BY MARKET CAP (For Table) ---
                 const parseCap = (capStr) => {
                     if(!capStr) return 0;
+                    // Remove commas and currency symbols
                     let val = parseFloat(capStr.replace(/[^0-9.]/g, ''));
-                    if (capStr.includes('T')) val *= 1000;
-                    if (capStr.includes('B')) val *= 1;
-                    return val;
+                    // Check for T/B suffixes just in case, otherwise treat as raw
+                    if (capStr.toUpperCase().includes('T')) val *= 1000000000000;
+                    else if (capStr.toUpperCase().includes('B')) val *= 1000000000;
+                    else if (capStr.toUpperCase().includes('CR')) val *= 10000000;
+                    return val || 0;
                 };
 
-                // Filter by Bias, Sort by Market Cap, Take Top 10
-                // Note: If exact Bias match isn't found, we show all "GROW" or similar as fallback
                 const filtered = data
                     .filter(item => item.biases.includes(biasName) || item.biases.includes('All'))
                     .sort((a, b) => parseCap(b.marketCap) - parseCap(a.marketCap))
                     .slice(0, 10);
 
-                // Render Table
+                // RENDER TABLE
                 if (filtered.length === 0) {
-                    tableBody.innerHTML = '<tr><td colspan="5">No specific stocks found for this bias. showing general top picks.</td></tr>';
-                    return;
+                    tableBody.innerHTML = '<tr><td colspan="5">No specific stocks found for this bias in Top 10.</td></tr>';
+                } else {
+                    tableBody.innerHTML = filtered.map(stock => `
+                        <tr>
+                            <td style="font-weight:bold;">${stock.symbol}</td>
+                            <td>${stock.category}</td>
+                            <td><span class="pillar-badge" style="font-size:10px;">${stock.pillar}</span></td>
+                            <td>${stock.currency}${stock.price}</td>
+                            <td>${stock.marketCap}</td>
+                        </tr>
+                    `).join('');
                 }
 
-                tableBody.innerHTML = filtered.map(stock => `
-                    <tr>
-                        <td style="font-weight:bold;">${stock.symbol}</td>
-                        <td>${stock.category}</td>
-                        <td><span class="pillar-badge" style="font-size:10px;">${stock.pillar}</span></td>
-                        <td>$${stock.price}</td>
-                        <td>${stock.marketCap}</td>
-                    </tr>
-                `).join('');
+                // --- LOGIC 2: RENDER RIBBON (Restored) ---
+                // We show the filtered stocks in the ribbon as well
+                let ribbonHtml = filtered.map(item => `
+                    <span class="stock-item">
+                        ${item.symbol}: ${item.currency}${item.price} 
+                        <span style="color: ${item.change?.includes('-') ? '#ff4d4d' : '#2ecc71'};">(${item.change}%)</span>
+                    </span>`).join('');
+                
+                ribbon.innerHTML = ribbonHtml || "No Data Available";
 
             } catch (error) {
                 console.error("Data Load Error:", error);
-                tableBody.innerHTML = '<tr><td colspan="5" style="color:red;">Error loading market data.</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="5" style="color:red;">Error loading market data. Check Console.</td></tr>';
             }
         }
 
@@ -227,6 +238,12 @@
         <p>Identify your bias to unlock your F11 Portfolio</p>
     </div>
 
+    <div class="stock-ribbon-container">
+        <div id="stockRibbon" class="stock-ribbon">
+            Spin the wheel to load tailored stock picks...
+        </div>
+    </div>
+
     <div class="wheel-container">
         <div class="pointer"></div>
         <div id="wheel"></div>
@@ -240,7 +257,7 @@
         <p id="biasDesc"></p>
         <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
         
-        <h3 id="portfolioRec">Recommended Strategy</h3>
+        <h3 id="portfolioRec">Recommended Strategy (Top 10 High-Cap)</h3>
         
         <div style="overflow-x: auto;">
             <table class="stock-table">
