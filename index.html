@@ -1,0 +1,98 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+// 1. FIREBASE CONFIG
+const firebaseConfig = {
+    apiKey: "AIzaSyC1hVvK7Yd3qB1Ud3mbIKd_edq4XmH-PVI",
+    authDomain: "brave-calling-398109.firebaseapp.com",
+    projectId: "brave-calling-398109",
+    storageBucket: "brave-calling-398109.firebasestorage.app",
+    messagingSenderId: "118774845365",
+    appId: "1:118774845365:web:99841a1b01f387a48ed3fc"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// 2. WHEEL DATA
+const segments = [
+    { name: 'Mental Accounting', profile: 'Passive', pillar: 'MANAGE' },
+    { name: 'Herd Behavior', profile: 'Moderate', pillar: 'EARN' },
+    { name: 'Emotional Gap', profile: 'Passive', pillar: 'MANAGE' },
+    { name: 'Anchoring', profile: 'Moderate', pillar: 'GROW' },
+    { name: 'Self-Attribution', profile: 'Aggressive', pillar: 'EARN' },
+    { name: 'Confirmation Bias', profile: 'Aggressive', pillar: 'GROW' },
+    { name: 'Experiential Bias', profile: 'Moderate', pillar: 'GROW' },
+    { name: 'Loss Aversion', profile: 'Passive', pillar: 'MANAGE' },
+    { name: 'Familiarity Bias', profile: 'Passive', pillar: 'MANAGE' }
+];
+
+let currentRotation = 0;
+
+// 3. SPIN FUNCTION
+window.spin = function() {
+    const wheel = document.getElementById('wheel');
+    const randomExtra = Math.floor(Math.random() * 360) + 1800; 
+    currentRotation += randomExtra;
+    
+    wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+    setTimeout(() => {
+        const actualDegree = currentRotation % 360;
+        // Each segment is 40 degrees (360/9)
+        const segmentIndex = Math.floor(((360 - actualDegree) % 360) / 40);
+        const result = segments[segmentIndex];
+        
+        displayResult(result);
+        saveBiasToFirebase(result.name);
+    }, 4000);
+};
+
+// 4. UI & FIREBASE LOGIC
+function displayResult(result) {
+    const card = document.getElementById('resultCard');
+    card.style.display = 'block';
+    document.getElementById('pillar').innerText = result.pillar;
+    document.getElementById('biasTitle').innerText = result.name;
+    document.getElementById('biasDesc').innerText = `Your profile is ${result.profile}. This influences how you ${result.pillar} wealth.`;
+    document.getElementById('portfolioRec').innerText = `Applying ${result.name} Strategy to your dashboard...`;
+}
+
+async function saveBiasToFirebase(biasName) {
+    const user = auth.currentUser;
+    if (user) {
+        try {
+            await setDoc(doc(db, "users", user.uid), { bias: biasName }, { merge: true });
+            console.log("Bias saved to Firebase:", biasName);
+        } catch (e) { console.error("Firebase Save Error:", e); }
+    }
+}
+
+// 5. APP ROUTING (Fixed Syntax with commas)
+window.loadApp = (page) => {
+    const view = document.getElementById('view');
+    const apps = {
+        'profile': 'behavior-wheel.html',
+        'market': 'https://reinvestmentpoint-ms7xuznw25ojwy4zgw2sxk.streamlit.app/',
+        'subs': 'subscription.html',
+        'India Bot': 'https://anusin1805.github.io/FinanceF11IndiaBot/',
+        'US Bot': 'https://anusin1805.github.io/financeF11bot/',
+        'SignIn': 'https://anusin1805.github.io/F11DashboardLogin/login.html'
+    };
+    if (view && apps[page]) {
+        view.src = apps[page];
+    }
+};
+
+// 6. INITIALIZATION
+document.getElementById('spinBtn').addEventListener('click', window.spin);
+
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        console.log("User Active:", user.email);
+    } else {
+        console.log("No user logged in.");
+    }
+});
